@@ -331,18 +331,27 @@ def search_service_impact(
 
     entry_point = commandId or flowId
 
-    # 查找入口 service_entry
+    # 查找入口 service_entry 或 flow
     entry = None
     if commandId:
         entries = q(schema,
             "SELECT * FROM service_entries WHERE command_id=%s LIMIT 1", (commandId,))
         if entries:
             entry = entries[0]
+            entry["table"] = "service_entry"
     elif flowId:
-        entries = q(schema,
-            "SELECT * FROM service_entries WHERE flow_id=%s LIMIT 1", (flowId,))
-        if entries:
-            entry = entries[0]
+        # 先在 flows 表查找
+        flows = q(schema, "SELECT * FROM flows WHERE flow_id=%s LIMIT 1", (flowId,))
+        if flows:
+            entry = flows[0]
+            entry["table"] = "flow"
+        else:
+            # 退回到 service_entries
+            entries = q(schema,
+                "SELECT * FROM service_entries WHERE flow_id=%s LIMIT 1", (flowId,))
+            if entries:
+                entry = entries[0]
+                entry["table"] = "service_entry"
 
     if not entry:
         return out({
@@ -400,13 +409,22 @@ def _traverse_forward(schema, node, visited, depth, max_depth, files, edges, war
                 _add_edge(edges, node_key, f"logic:{logic['chain_id']}")
                 _traverse_forward(schema, logic, visited, depth + 1, max_depth, files, edges, warnings)
 
-        # 沿 flow_id 遍历 flows
-        if node.get("flow_id"):
-            flows = q(schema, "SELECT * FROM flows WHERE flow_id=%s", (node["flow_id"],))
+        # 沿 flow_id 遍历 flows 和 flow_tasks
+        _flow_id = node.get("flow_id")
+        if _flow_id:
+            flows = q(schema, "SELECT * FROM flows WHERE flow_id=%s", (_flow_id,))
             for flow in flows:
                 flow["table"] = "flow"
                 _add_edge(edges, node_key, f"flow:{flow['flow_id']}")
                 _traverse_forward(schema, flow, visited, depth + 1, max_depth, files, edges, warnings)
+
+            # 从 service_entry 直接遍历 flow_tasks（当 flow_id 在 service_entry 中时）
+            flow_tasks = q(schema,
+                "SELECT * FROM flow_tasks WHERE flow_id=%s ORDER BY task_order", (_flow_id,))
+            for task in flow_tasks:
+                task["table"] = "flow_task"
+                _add_edge(edges, node_key, f"flow_task:{task['task_order']}")
+                _traverse_forward(schema, task, visited, depth + 1, max_depth, files, edges, warnings)
 
         # 沿 bean_ref 遍历 beans
         if node.get("bean_ref"):
@@ -433,6 +451,14 @@ def _traverse_forward(schema, node, visited, depth, max_depth, files, edges, war
             state["table"] = "state"
             _add_edge(edges, node_key, f"state:{state['state_name']}")
             _traverse_forward(schema, state, visited, depth + 1, max_depth, files, edges, warnings)
+
+        # 遍历 flow_tasks
+        flow_tasks = q(schema,
+            "SELECT * FROM flow_tasks WHERE flow_id=%s ORDER BY task_order", (flow_id,))
+        for task in flow_tasks:
+            task["table"] = "flow_task"
+            _add_edge(edges, node_key, f"flow_task:{task['task_order']}")
+            _traverse_forward(schema, task, visited, depth + 1, max_depth, files, edges, warnings)
 
     elif table == "state":
         # 遍历 activities
@@ -471,6 +497,24 @@ def _traverse_forward(schema, node, visited, depth, max_depth, files, edges, war
                 _add_edge(edges, node_key, f"logic:{logic['chain_id']}")
                 _traverse_forward(schema, logic, visited, depth + 1, max_depth, files, edges, warnings)
 
+        # 遍历 transitions（通过 activity_id 关联）
+        activity_id = node.get("activity_id")
+        if activity_id:
+            transitions = q(schema, "SELECT * FROM transitions WHERE activity_id=%s", (activity_id,))
+            for trans in transitions:
+                trans["table"] = "transition"
+                _add_edge(edges, node_key, f"transition:{trans.get('next_target', activity_id)}")
+                _traverse_forward(schema, trans, visited, depth + 1, max_depth, files, edges, warnings)
+
+    elif table == "flow_task":
+        # 沿 logic 字段遍历 logics
+        if node.get("logic"):
+            logics = q(schema, "SELECT * FROM logics WHERE chain_id=%s", (node["logic"],))
+            for logic in logics:
+                logic["table"] = "logic"
+                _add_edge(edges, node_key, f"logic:{logic['chain_id']}")
+                _traverse_forward(schema, logic, visited, depth + 1, max_depth, files, edges, warnings)
+
     elif table == "logic":
         # 遍历 logic_steps
         chain_id = node.get("chain_id")
@@ -483,12 +527,25 @@ def _traverse_forward(schema, node, visited, depth, max_depth, files, edges, war
 
         # 遍历 bridges
         bridges = q(schema,
-            "SELECT * FROM bridges WHERE chain_id=%s ORDER BY step_order, bridge_order",
-            (chain_id,))
+            "SELECT * FROM bridges WHERE chain_id=%s ORDER BY step_order, bridge_order", (chain_id,))
         for bridge in bridges:
             bridge["table"] = "bridge"
             _add_edge(edges, node_key, f"bridge:{bridge['bridge_id']}")
             _traverse_forward(schema, bridge, visited, depth + 1, max_depth, files, edges, warnings)
+
+        # 遍历 activities（logic 通过 logic 字段关联）
+        activities = q(schema, "SELECT * FROM activities WHERE logic=%s ORDER BY activity_order", (chain_id,))
+        for act in activities:
+            act["table"] = "activity"
+            _add_edge(edges, node_key, f"activity:{act['activity_id']}")
+            _traverse_forward(schema, act, visited, depth + 1, max_depth, files, edges, warnings)
+
+        # 遍历 flow_tasks（logic 通过 logic 字段关联）
+        flow_tasks = q(schema, "SELECT * FROM flow_tasks WHERE logic=%s ORDER BY task_order", (chain_id,))
+        for task in flow_tasks:
+            task["table"] = "flow_task"
+            _add_edge(edges, node_key, f"flow_task:{task['task_order']}")
+            _traverse_forward(schema, task, visited, depth + 1, max_depth, files, edges, warnings)
 
     elif table == "bridge":
         # 沿 before_beans / after_beans 遍历 beans
@@ -504,6 +561,36 @@ def _traverse_forward(schema, node, visited, depth, max_depth, files, edges, war
                     bean["table"] = "bean"
                     _add_edge(edges, node_key, f"bean:{bean['bean_id']}")
                     _traverse_forward(schema, bean, visited, depth + 1, max_depth, files, edges, warnings)
+
+        # 遍历 bridges（bridge_id 可能引用另一个 logic chain）
+        bridge_id = node.get("bridge_id")
+        if bridge_id:
+            ref_logics = q(schema, "SELECT * FROM logics WHERE chain_id=%s", (bridge_id,))
+            for ref_logic in ref_logics:
+                ref_logic["table"] = "logic"
+                _add_edge(edges, node_key, f"logic:{ref_logic['chain_id']}")
+                _traverse_forward(schema, ref_logic, visited, depth + 1, max_depth, files, edges, warnings)
+
+    elif table == "bean":
+        # 遍历 interceptors（通过 bean_id → bean_ref 关联）
+        bean_id = node.get("bean_id")
+        if bean_id:
+            interceptors = q(schema, "SELECT * FROM interceptors WHERE bean_ref=%s", (bean_id,))
+            for intcp in interceptors:
+                intcp["table"] = "interceptor"
+                _add_edge(edges, node_key, f"interceptor:{intcp.get('bean_ref', intcp.get('id', ''))}")
+                _traverse_forward(schema, intcp, visited, depth + 1, max_depth, files, edges, warnings)
+
+    elif table == "java_class":
+        # 遍历 java_methods（通过 full_qualified_name → class_fqn 关联）
+        fqn = node.get("full_qualified_name")
+        if fqn:
+            methods = q(schema,
+                "SELECT method_name, full_signature FROM java_methods WHERE class_fqn=%s",
+                (fqn,))
+            for method in methods:
+                method["table"] = "java_method"
+                _add_edge(edges, node_key, f"java_method:{method.get('method_name', method.get('id', ''))}")
 
 
 def _traverse_backward(schema, node, visited, depth, max_depth, files, edges, warnings):
@@ -543,14 +630,48 @@ def _traverse_backward(schema, node, visited, depth, max_depth, files, edges, wa
                 _add_edge(edges, f"service_entry:{se['name']}_back", f"service_entry:{se.get('name', '')}")
                 _traverse_backward(schema, se, visited, depth + 1, max_depth, files, edges, warnings)
 
-    elif table in ("flow", "logic", "bridge", "bean", "state", "activity"):
-        # 通用反向查找实现
+    elif table == "flow":
+        # 反向查找：哪些 service_entries 使用该 flow_id
+        flow_id = node.get("flow_id")
+        if flow_id:
+            upstream = q(schema,
+                "SELECT * FROM service_entries WHERE flow_id=%s", (flow_id,))
+            for se in upstream:
+                se["table"] = "service_entry"
+                se["_back_key"] = True
+                _add_edge(edges, f"service_entry:{se.get('name', '')}_back", f"service_entry:{se.get('name', '')}")
+                _traverse_backward(schema, se, visited, depth + 1, max_depth, files, edges, warnings)
+
+    elif table == "logic":
+        # 反向查找：哪些 service_entries/activities/flow_tasks 使用该 chain_id
+        chain_id = node.get("chain_id")
+        if chain_id:
+            # service_entries
+            for se in q(schema, "SELECT * FROM service_entries WHERE chain_id=%s", (chain_id,)):
+                se["table"] = "service_entry"
+                se["_back_key"] = True
+                _add_edge(edges, f"service_entry:{se.get('name', '')}_back", f"service_entry:{se.get('name', '')}")
+                _traverse_backward(schema, se, visited, depth + 1, max_depth, files, edges, warnings)
+            # activities
+            for act in q(schema, "SELECT * FROM activities WHERE logic=%s", (chain_id,)):
+                act["table"] = "activity"
+                act["_back_key"] = True
+                _add_edge(edges, f"activity:{act.get('activity_id', act.get('id', ''))}_back", f"activity:{act.get('activity_id', act.get('id', ''))}")
+                _traverse_backward(schema, act, visited, depth + 1, max_depth, files, edges, warnings)
+            # flow_tasks
+            for task in q(schema, "SELECT * FROM flow_tasks WHERE logic=%s", (chain_id,)):
+                task["table"] = "flow_task"
+                task["_back_key"] = True
+                _add_edge(edges, f"flow_task:{task.get('task_order', task.get('id', ''))}_back", f"flow_task:{task.get('task_order', task.get('id', ''))}")
+                _traverse_backward(schema, task, visited, depth + 1, max_depth, files, edges, warnings)
+
+    elif table in ("flow_task", "bridge", "bean", "state", "activity"):
         pass  # 简化：主要通过 service_entry 的 flow_id/chain_id 反向查找
 
 
 def _collect_files(schema, node, files):
     """收集节点关联的文件路径"""
-    # 收集 xml_path
+    # 收集 xml_path（适用于所有表）
     if node.get("xml_path"):
         path = node["xml_path"]
         files[path] = {"path": path, "type": "xml"}
@@ -575,6 +696,15 @@ def _collect_files(schema, node, files):
                 if jc and jc[0].get("file_path"):
                     path = jc[0]["file_path"]
                     files[path] = {"path": path, "type": "java"}
+    elif table == "flow_task" and node.get("logic"):
+        # 遍历 flow_task 引用的 logic 的 xml_path
+        logics = q(schema, "SELECT xml_path FROM logics WHERE chain_id=%s", (node["logic"],))
+        for logic in logics:
+            if logic.get("xml_path"):
+                files[logic["xml_path"]] = {"path": logic["xml_path"], "type": "xml"}
+    elif table == "java_class" and node.get("file_path"):
+        # 收集 java_class 的文件路径
+        files[node["file_path"]] = {"path": node["file_path"], "type": "java"}
 
 
 def _add_edge(edges, from_key, to_key):
