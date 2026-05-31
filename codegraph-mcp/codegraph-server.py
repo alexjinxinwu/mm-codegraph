@@ -29,10 +29,10 @@ def get_pool():
         _POOL = PooledDB(
             creator=pymysql,
             maxconnections=int(os.environ.get("MYSQL_POOL_SIZE", "5")),
-            host=os.environ.get("MYSQL_HOST", "192.168.97.2"),
+            host=os.environ.get("MYSQL_HOST", "localhost"),
             port=int(os.environ.get("MYSQL_PORT", "3306")),
-            user=os.environ.get("MYSQL_USER", "w00558136"),
-            password=os.environ.get("MYSQL_PASSWORD", "Huawei@123"),
+            user=os.environ.get("MYSQL_USER", "root"),
+            password=os.environ.get("MYSQL_PASSWORD", "root"),
             charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor,
             ping=1,
@@ -585,13 +585,5 @@ def _add_edge(edges, from_key, to_key):
 
 
 if __name__ == "__main__":
-    host = os.environ.get("MYSQL_HOST", "192.168.97.2")
-    port = os.environ.get("MYSQL_PORT", "3306")
-    try:
-        get_pool().connection().close()
-    except Exception as exc:
-        print(f"[mm-codegraph] 启动失败：无法连接 MySQL {host}:{port}（{exc}）", file=sys.stderr)
-        raise SystemExit(1) from exc
-
-    print(f"[mm-codegraph] 启动成功，stdio 就绪，MySQL {host}:{port}", file=sys.stderr)
+    print(f"[mm-codegraph] 启动成功，stdio 就绪", file=sys.stderr)
     mcp.run()  # 默认 stdio transport，适配 Claude Code
