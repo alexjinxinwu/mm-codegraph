@@ -1,0 +1,17 @@
+﻿1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\atomic\VerifyRecordAS.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\atomic\impl\VerifyRecordASImpl.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\ErrorCode4Customercare.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\bridge\BuildAuditLogReleaseCCSuspendStatus.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\convertor\ReleaseOrgOperatorCCSuspendStatusConvertor.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\bridge\VerifyCallerNotificationCollector.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\bridge\ProcessReleaseIdentityCCSuspendStatus.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\io\ReleaseOrgOperatorCCSuspendStatusRequestInfo.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\atomic\bo\VerifyRecord.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\java\com\huawei\bs\customercare\service\ReleaseOrgOperatorCCSuspendStatusService.java
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\conf\bs.customercare.mgt.app-def.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\uconfig\flow-config\bs.customercare.flow-config.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\uconfig\module-parameter\bs.customercare.mapper.module-parameter.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\uconfig\module-parameter\bs.customercare.module-parameter.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\uconfig\logic\bs.customercare.logic.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\uconfig\namingsql\bs.customercare.naming-sql.xml
+1.0BaseMaster\BD_BOD\codes\bod_customercare\src\main\resources\spring\bean\bs.customercare.service.xml

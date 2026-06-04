@@ -1,0 +1,4 @@
+name: enhance-search-service-impact
+schema: superspec
+created: 2026-06-02
+purpose: 增强 search_service_impact MCP tool，引入 analyzer.py 的 Fix-B/C/D 启发式与 REF_CHAIN 递归展开、import 图 BFS、动态 chain 发现，使其返回任意 schema（1.0Base / 2.0Base / 公共库）下按 commandId / flowId 入口涉及的全部文件。

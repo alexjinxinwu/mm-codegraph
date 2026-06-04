@@ -541,6 +541,12 @@ def search_service_impact(
         env_root = os.environ.get("MM_CODEGRAPH_CODEBASE_ROOT", "").strip()
         if env_root and os.path.isdir(env_root):
             codeBaseRoot = env_root
+        else:
+            # 硬默认值: 本机 MobileMoneyMonorepo 代码根。目录不存在时静默回退,
+            # 后续 Plan B/Plan C 自然走不到文件, 仍会写 skipped warning。
+            default_root = "D:/2026/MobileMoneyMonorepo"
+            if os.path.isdir(default_root):
+                codeBaseRoot = default_root
 
     entry_point = commandId or flowId
     warnings = []
@@ -608,6 +614,22 @@ def search_service_impact(
                     files[fp] = {"path": fp, "type": "xml"}
         except Exception as e:
             warnings.append(f"Resource directory scan failed at {codeBaseRoot}: {e}")
+
+        # ── Plan C：子工程锚定的 namingsql 收窄
+        # Plan B 的 resources/ 全树 walk 会把同 resources 根下其它子工程的
+        # namingsql 也卷进来；这里按 entry 链 xml_path 的 'codes\\<subdir>\\'
+        # 锚点收窄到本子工程的 namingsql/*.xml。
+        try:
+            xml_anchors = [v["path"] for v in files.values()
+                           if v.get("type") == "xml"]
+            sub_roots = _derive_subproject_roots(xml_anchors, codeBaseRoot)
+            if sub_roots:
+                ns_files = _scan_namingsql_by_subproject(codeBaseRoot, sub_roots)
+                for fp in ns_files:
+                    if fp and fp not in files:
+                        files[fp] = {"path": fp, "type": "xml"}
+        except Exception as e:
+            warnings.append(f"Subproject-anchored namingsql scan failed: {e}")
     else:
         warnings.append("Resource directory scan skipped: codeBaseRoot not provided")
 
@@ -1375,6 +1397,64 @@ def _scan_resource_files(code_base_root, xml_paths):
                     dirnames.clear()
         except Exception:
             continue
+    return result
+
+
+# ── 子工程锚定的 namingsql 收窄 ──────────────────────────────────────
+# 与 analyzer_compat.scan_module_parameters (line 682-719) 共享 'codes\\<subdir>\\'
+# 锚点规则。区别：本函数走文件系统 (os.walk)，不依赖 MySQL，调用方是
+# search_service_impact 在传 codeBaseRoot 时启用的 Plan C 收窄 pass。
+_CODES_ANCHOR = "codes\\"
+
+
+def _derive_subproject_roots(xml_paths, code_base_root):
+    """从 entry 链 xml_paths + codeBaseRoot 推出 namingsql 扫描起点。
+
+    对每个 xml_path，取 'codes\\<sub>\\' 之前的全部相对前缀，拼到 codeBaseRoot 后。
+    返回 {subdir: abs_root_path} 字典；abs_root_path 不存在由调用方按 isdir 判断。
+    """
+    roots = {}
+    base = (code_base_root or "").rstrip("\\/").replace("/", "\\")
+    for p in xml_paths or []:
+        norm = (p or "").replace("/", "\\")
+        idx = norm.find(_CODES_ANCHOR)
+        if idx < 0:
+            continue
+        tail = norm[idx + len(_CODES_ANCHOR):]
+        end = tail.find("\\")
+        if end <= 0:
+            continue
+        subdir = tail[:end].strip()
+        if not subdir or subdir in roots:
+            continue
+        prefix = norm[:idx]  # 'codes\\' 之前的所有相对段
+        abs_root = (os.path.join(base, prefix, "codes", subdir) if prefix
+                    else os.path.join(base, "codes", subdir))
+        roots[subdir] = abs_root
+    return roots
+
+
+def _scan_namingsql_by_subproject(code_base_root, subproject_roots):
+    """对每个 (subdir, abs_root) 在 abs_root 下 os.walk，收集 namingsql/*.xml。
+
+    返回相对 code_base_root 的 '\\\\' 风格路径列表（去重）。"""
+    seen, result = set(), []
+    for sub, abs_root in sorted((subproject_roots or {}).items()):
+        if not abs_root or not os.path.isdir(abs_root):
+            continue
+        for dirpath, dirnames, filenames in os.walk(abs_root):
+            if os.path.basename(dirpath) == "namingsql":
+                for fn in sorted(filenames):
+                    # namingsql 文件名约定为 *.naming-sql.xml，避开模块下其它 XML
+                    # (例如 mapper 注册、方言 SQL 等)。
+                    if fn.lower().endswith(".naming-sql.xml"):
+                        rp = os.path.relpath(
+                            os.path.join(dirpath, fn), code_base_root)
+                        rp = rp.replace("/", "\\")
+                        if rp not in seen:
+                            seen.add(rp)
+                            result.append(rp)
+                dirnames.clear()  # namingsql 目录收完不再下钻
     return result
 
 

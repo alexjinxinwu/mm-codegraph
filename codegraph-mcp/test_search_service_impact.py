@@ -181,12 +181,8 @@ def test_5_2_no_codeBaseRoot_returns_at_least_16():
     }
     missing_mp = expected_module_param - got
     assert not missing_mp, f"missing module-parameter files: {missing_mp}"
-    # 1 个 namingsql 仍缺（依赖 codeBaseRoot）
-    expected_namingsql = "1.0BaseMaster\\BD_BOD\\codes\\bod_customercare\\src\\main\\resources\\uconfig\\namingsql\\bs.customercare.naming-sql.xml"
-    assert expected_namingsql not in got, (
-        f"namingsql 仍缺（依赖 codeBaseRoot）, 但意外出现: {expected_namingsql}")
-    # warnings 至少含 Resource directory scan skipped
-    assert any("Resource directory scan" in w for w in result["warnings"])
+    # namingsql 是否在结果里取决于默认 codeBaseRoot 是否命中 (D:/2026/MobileMoneyMonorepo)。
+    # 这里不强断言，交给 test_5_4 做严格 0 行 diff。
 
 
 def test_5_X_no_codeBaseRoot_but_envvar_returns_17():
@@ -506,11 +502,21 @@ def test_param_validation_codeBaseRoot_not_string():
 
 
 def test_param_validation_codeBaseRoot_none_disables():
-    """codeBaseRoot=None → 不触发资源扫描（warning 含 'skipped'）。"""
+    """codeBaseRoot=None → 触发硬默认值 (D:/2026/MobileMoneyMonorepo) 兜底。
+
+    默认根存在时不再走 skipped 路径；只有默认根也不存在时才追加 skipped warning。
+    本测试仅在显式传 None 且默认根不存在时断言 skipped 出现，否则跳过。"""
     if not _CONNECTED:
         return
     result = _call(commandId=TEST_COMMAND_ID, codeBaseRoot=None)
-    assert any("skipped" in w for w in result["warnings"])
+    default_root = "D:/2026/MobileMoneyMonorepo"
+    if not Path(default_root).is_dir():
+        assert any("skipped" in w for w in result["warnings"]), (
+            f"expected 'skipped' warning when no default root, got: {result['warnings']}")
+    else:
+        # 默认根存在 → 不应再出 skipped warning
+        assert not any("skipped" in w for w in result["warnings"]), (
+            f"unexpected 'skipped' warning (default root exists): {result['warnings']}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -522,6 +528,86 @@ def test_helper_scan_resource_files_no_resources_marker():
     out = codegraph_server._scan_resource_files(
         "D:/anything", ["foo.xml", "bar/baz.xml"])
     assert out == []
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  QueryTillProducts：用例固化（不传 codeBaseRoot 时 27 个文件）
+# ═══════════════════════════════════════════════════════════════════════
+# 与 test_5_3/5.4/5_5 模式对齐，但 commandId/期望清单与默认解耦，避免被
+# TEST_COMMAND_ID 切换影响。期望清单见 testdata/QueryTillProducts.txt。
+QUERY_TILL_PRODUCTS_ID = "QueryTillProducts"
+QUERY_TILL_PRODUCTS_EXPECTED_FILE = (
+    HERE.parent / "testdata" / "QueryTillProducts.txt"
+)
+
+
+def _load_query_till_products_expected():
+    p = QUERY_TILL_PRODUCTS_EXPECTED_FILE
+    if p.is_file():
+        return [ln.strip() for ln in p.read_text(
+            encoding="utf-8").splitlines()
+                if ln.strip() and not ln.startswith("﻿")]
+    return []
+
+
+def test_5_14_query_till_products_no_codeBaseRoot_returns_27():
+    """5.14 commandId='QueryTillProducts' 不显式传 codeBaseRoot 时 files 至少 27 个。
+
+    期望清单见 testdata/QueryTillProducts.txt，由 MCP 实测生成（不依赖 codeBaseRoot）。
+    当默认 codeBaseRoot (D:/2026/MobileMoneyMonorepo) 命中时，结果还会再增 2 个
+    bod_organization 子工程的 namingsql XML（与期望清单是超集关系）。"""
+    if not _CONNECTED:
+        return
+    if not QUERY_TILL_PRODUCTS_EXPECTED_FILE.is_file():
+        print(f"[skip] 期望清单不存在: {QUERY_TILL_PRODUCTS_EXPECTED_FILE}")
+        return
+    result = _call(commandId=QUERY_TILL_PRODUCTS_ID)
+    assert result["entryPoint"] == QUERY_TILL_PRODUCTS_ID
+    assert isinstance(result["files"], list)
+    assert len(result["files"]) >= 27, (
+        f"expected ≥27 files, got {len(result['files'])}: {result['files']}")
+    # 期望清单是结果的下界（不传 codeBaseRoot 时严格相等；传了则超集）
+    expected = set(_load_query_till_products_expected())
+    got = set(result["files"])
+    missing = expected - got
+    assert not missing, f"missing expected files: {sorted(missing)[:10]}"
+
+
+def test_5_15_query_till_products_with_codeBaseRoot_is_superset():
+    """5.15 传 codeBaseRoot 后 files 是不传的超集（namingsql 增量不漏）。"""
+    if not _CONNECTED:
+        return
+    if not Path(TEST_CODE_BASE_ROOT).is_dir():
+        print(f"[skip] codeBaseRoot not a directory: {TEST_CODE_BASE_ROOT}")
+        return
+    a = _call(commandId=QUERY_TILL_PRODUCTS_ID)
+    b = _call(commandId=QUERY_TILL_PRODUCTS_ID, codeBaseRoot=TEST_CODE_BASE_ROOT)
+    assert set(a["files"]).issubset(set(b["files"])), (
+        f"files lost after enabling codeBaseRoot: "
+        f"{set(a['files']) - set(b['files'])}")
+    diff = set(b["files"]) - set(a["files"])
+    print(f"[info] codeBaseRoot added {len(diff)} extra files: "
+          f"{sorted(diff)[:3]}...")
+
+
+def test_5_16_query_till_products_with_codeBaseRoot_collects_namingsql():
+    """5.16 传 codeBaseRoot 后 bod_organization 子工程的 namingsql/*.xml 被纳入。
+
+    固化 Plan C（子工程锚定 namingsql 收窄）行为：entry 链触达 bod_organization，
+    该子工程下的 bod.operator.naming-sql.xml 等应被自动收集。"""
+    if not _CONNECTED:
+        return
+    if not Path(TEST_CODE_BASE_ROOT).is_dir():
+        print(f"[skip] codeBaseRoot not a directory: {TEST_CODE_BASE_ROOT}")
+        return
+    result = _call(commandId=QUERY_TILL_PRODUCTS_ID, codeBaseRoot=TEST_CODE_BASE_ROOT)
+    got = set(result["files"])
+    expected_namingsql = {
+        "1.0BaseMaster\\BD_BOD\\codes\\bod_organization\\src\\main\\resources\\uconfig\\namingsql\\bod.operator.naming-sql.xml",
+        "1.0BaseMaster\\BD_BOD\\codes\\bod_organization\\src\\main\\resources\\uconfig\\namingsql\\bp.ic.organization.naming-sql.xml",
+    }
+    missing = expected_namingsql - got
+    assert not missing, f"namingsql 未被 Plan C 收齐: {missing}"
 
 
 def test_helper_scan_resource_files_relative():
