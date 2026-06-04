@@ -21,8 +21,7 @@ metadata:
 - 输出：`D:/2026/MobileMoneyMonorepo/ReleaseOrgOperatorCCSuspendStatus-plan.txt`
 - schema：`1_0_baseline`（默认）
 - codeBaseRoot：取自环境变量 `MM_CODEGRAPH_CODEBASE_ROOT`（= `D:/2026/MobileMoneyMonorepo`）
-- 落地首行：`# schema: 1_0_baseline`；`# status: ok`；`# reason: none`；其后 17 行受影响源文件相对路径（按 MCP 返回顺序即字典序）
-- 文件落盘实测于本 change：`openspec/changes/add-propose-migration-skill/.openspec.yaml` 提交同期落盘
+- 落地内容：纯文件列表，17 行受影响源文件相对路径（按 MCP 返回顺序即字典序），**无任何元信息头**
 
 ## 触发语法
 
@@ -121,46 +120,34 @@ mcp__mm-codegraph__search_service_impact(
 
 ### 5. 写文件 `<id>-plan.txt`
 
-文件路径：**`{codeBaseRoot}/<id>-plan.txt`**（`codeBaseRoot` 缺失时改用当前 shell 工作目录探测值，仍缺失则报错不写盘）。
+文件路径：**`{codeBaseRoot}/<id>-plan.txt>`**（`codeBaseRoot` 缺失时改用当前 shell 工作目录探测值，仍缺失则报错不写盘）。
 
-文件内容（UTF-8，行尾 `\n`）：
+文件内容（UTF-8，行尾 `\n`）：**只包含纯粹的文件列表**，每行一条受影响的源文件路径，**不写任何元信息头**（无 `# schema:` / `# status:` / `# reason:` 行）。
 
-```
-# schema: <schema>
-# status: <ok|empty|error>
-# reason: <text>
-<sorted abs path 1>
-<sorted abs path 2>
-...
-```
-
-- `# schema:` 行：永远写当前 `schema` 值。
-- `# status:` 决定：
-  - MCP 工具抛错 / `files` 不可解析 → `error`，`reason` 为异常前 200 字。
-  - `files` 为空集合 → `empty`，`reason` 固定为 `no affected files found`。
-  - 正常返回 → `ok`，`reason` 透传 MCP 的 `warnings` 数组（多行用 ` | ` 连接，无 warning 时为 `none`）。
-- `# reason:` 后必须跟**一个**空格和**一行**文本。
-- 文件正文从第 4 行开始：每行一条受影响的源文件路径。MCP 返回的 `files` 元素是**相对 `codeBaseRoot` 的反斜杠分隔路径**（如 `1.0BaseMaster\BD_BOD\codes\…\Foo.java`）。本 skill **原样落盘**，不强行转为绝对路径——用户读到文件即可用 `<codeBaseRoot>/<line>` 拼成绝对路径，与 IDE 资源管理器层级一致。
+- MCP 返回的 `files` 元素是**相对 `codeBaseRoot` 的反斜杠分隔路径**（如 `1.0BaseMaster\BD_BOD\codes\…\Foo.java`）。本 skill **原样落盘**，不强行转为绝对路径。
+- 字典序：MCP 返回顺序即字典序，按 MCP 原序写入即可；如需强制重排可 `sorted(paths)`。
+- 空集：写一个空文件（0 字节），**不**写占位文字。
+- 异常：MCP 抛错 → **不写盘**，在响应中报错并贴出 reason。
 
 用 `Write` 工具写出（`codeBaseRoot` 不存在 → **不写盘**，在响应中报错并贴出 reason）。
 
 ### 6. 回报
 
-在响应中**必须**包含以下 4 项：
+在响应中**必须**包含以下 4 项（仅在响应里贴，**不写进文件**）：
 
 - `Wrote: <absolute path to <id>-plan.txt>`（让用户能 grep 确认落盘）
 - `Entry point: <commandId|flowId>`
-- `Status: <ok|empty|error>`
-- `File count: <N>`
+- `File count: <N>`（0 表示空文件）
+- `Warnings: <list>`（MCP 返回的 warnings 数组；无 warning 时为 `none`）
 
 ## 边界与失败处理
 
 | 场景 | 行为 |
 |------|------|
-| `<id>` 与 `commandId` / `flowId` 都未命中 | 仍写 `<id>-plan.txt`，`status=empty`，`reason=no affected files found` |
+| `<id>` 与 `commandId` / `flowId` 都未命中 | 仍写 `<id>-plan.txt`（0 字节空文件），不写占位文字 |
 | `codeBaseRoot` 缺失 | 不阻断；MCP 返回 warning；本 skill 在响应中提示 |
 | `codeBaseRoot` 路径不存在 | **不写盘**；响应中报错并把 reason 贴出 |
-| MCP 工具抛异常 | 仍写 `<id>-plan.txt`（若 `codeBaseRoot` 有效），`status=error`，`reason` 为异常前 200 字 |
+| MCP 工具抛异常 | **不写盘**；响应中报错并把异常前 200 字贴出 |
 | 重复执行覆盖 | 直接覆盖（与 `git diff` 工作流一致；不引入历史） |
 
 ## 命名约束
