@@ -40,7 +40,7 @@ metadata:
 - 工具存在 → 继续。
 - 工具不存在 → **停止**，向用户输出以下指引并退出，不进入执行序列：
 
-  > mm-codegraph MCP server 未注册。请在 Claude Code 的 MCP 配置（如 `~/.claude/mcp.json` 或等价位置）添加：
+  > mm-codegraph MCP server 未注册。请在 Claude Code 的 MCP 配置（如 `~/.claude/.mcp.json` 或等价位置）添加：
   >
   > ```json
   > {
