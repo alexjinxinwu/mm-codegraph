@@ -33,6 +33,7 @@ MySQL 代码图谱 (14 表)     codegraph-mcp/codegraph-server.py     Claude Cod
 | Capability | 说明 | Spec |
 |------------|------|------|
 | codegraph-mcp | MCP Server 暴露代码知识图谱查询（v1，15 tools） | `openspec/specs/codegraph-mcp/spec.md` |
+| propose-migration-skill | 输入 commandId/flowId，调用 `search_service_impact` 在 codeBaseRoot 写出 `<id>-plan.txt` | `openspec/specs/propose-migration-skill/spec.md` |
 
 ## 相关文档
 
