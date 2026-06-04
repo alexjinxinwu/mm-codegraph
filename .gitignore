@@ -1,2 +1,3 @@
 .venv
 .mcp.json
+/codegraph-mcp/__pycache__/*.pyc

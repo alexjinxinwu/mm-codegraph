@@ -28,8 +28,6 @@ cat > openspec/config.yaml <<'EOF'
 schema: superspec
 
 context: |
-  Java 21, Spring Boot 3, layered architecture (controller → service → repository).
-  MySQL for persistence. Maven build. Base package: com.yesclaw.opensuperdemo.
   Harness: OpenSpec (Superspec schema) + Superpowers skills in Claude Code.
 EOF
 
