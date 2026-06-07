@@ -49,10 +49,10 @@ metadata:
   >       "command": "python",
   >       "args": ["D:/2026/mm-codegraph/codegraph-mcp/codegraph-server.py"],
   >       "env": {
-  >         "MYSQL_HOST": "...",
-  >         "MYSQL_PORT": "3306",
-  >         "MYSQL_USER": "...",
-  >         "MYSQL_PASSWORD": "...",
+  >         "MMCG_MYSQL_HOST": "...",
+  >         "MMCG_MYSQL_PORT": "3306",
+  >         "MMCG_MYSQL_USER": "...",
+  >         "MMCG_MYSQL_PASSWORD": "...",
   >         "MM_CODEGRAPH_CODEBASE_ROOT": "D:/2026/MobileMoneyMonorepo"
   >       }
   >     }

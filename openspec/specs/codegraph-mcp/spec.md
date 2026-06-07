@@ -112,7 +112,7 @@
 系统 SHALL 通过环境变量配置 MySQL 连接，并使用连接池管理连接。
 
 #### Scenario: 环境变量覆盖默认连接
-- **WHEN** 设置 MYSQL_HOST、MYSQL_PORT、MYSQL_USER、MYSQL_PASSWORD、MYSQL_POOL_SIZE 环境变量
+- **WHEN** 设置 MMCG_MYSQL_HOST、MMCG_MYSQL_PORT、MMCG_MYSQL_USER、MMCG_MYSQL_PASSWORD、MMCG_MYSQL_POOL_SIZE 环境变量
 - **THEN** 连接池 MUST 使用环境变量值建立连接
 - **THEN** 各查询工具共享同一连接池实例
 

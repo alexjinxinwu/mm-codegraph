@@ -3,8 +3,19 @@
 
 import os
 import re
+import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import Optional
+
+# 允许在 codegraph_mcp 目录内直接 `python server.py`
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from codegraph_core.env_config import load_mysql_env
+
+load_mysql_env(_REPO_ROOT)
 
 from mcp.server.fastmcp import FastMCP
 
@@ -297,3 +308,8 @@ def search_service_impact(
         result = run_flow(schema, None, flowId, _q_fn, code_base_root=codeBaseRoot)
 
     return out(result)
+
+
+if __name__ == "__main__":
+    print("[mm-codegraph] 启动成功，stdio 就绪", file=sys.stderr)
+    mcp.run()

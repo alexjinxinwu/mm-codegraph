@@ -45,11 +45,11 @@ class QueryEngine:
         if self._pool is None:
             self._pool = PooledDB(
                 creator=pymysql,
-                maxconnections=int(os.environ.get("MYSQL_POOL_SIZE", "5")),
-                host=os.environ.get("MYSQL_HOST", "localhost"),
-                port=int(os.environ.get("MYSQL_PORT", "3306")),
-                user=os.environ.get("MYSQL_USER", "root"),
-                password=os.environ.get("MYSQL_PASSWORD", "root"),
+                maxconnections=int(os.environ.get("MMCG_MYSQL_POOL_SIZE", "5")),
+                host=os.environ.get("MMCG_MYSQL_HOST", "localhost"),
+                port=int(os.environ.get("MMCG_MYSQL_PORT", "3306")),
+                user=os.environ.get("MMCG_MYSQL_USER", "root"),
+                password=os.environ.get("MMCG_MYSQL_PASSWORD", "root"),
                 charset="utf8mb4",
                 cursorclass=pymysql.cursors.DictCursor,
                 ping=1,
