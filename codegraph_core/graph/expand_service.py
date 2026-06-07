@@ -6,6 +6,7 @@ from codegraph_core.graph.edge_rules import get_edges_from
 from codegraph_core.graph.expand_query import build_expand_query
 from codegraph_core.graph.expand_validation import validate_expand_input
 from codegraph_core.graph.node_specs import get_node_spec
+from codegraph_core.graph.shape import shape_node
 from codegraph_core.query_engine import q
 
 EXPAND_NEIGHBOR_LIMIT = 200
@@ -51,18 +52,11 @@ def _shape_neighbor(
     from_id: int,
     neighbor_row: dict,
 ) -> tuple[dict, dict]:
-    to_spec = get_node_spec(rule.to_type)
-    assert to_spec is not None
-    node = {
-        "type": rule.to_type,
-        "id": neighbor_row[to_spec.id_column],
-        "title": neighbor_row.get(to_spec.title),
-        "subtitle": neighbor_row.get(to_spec.subtitle),
-    }
+    node = shape_node(rule.to_type, neighbor_row)
     edge = {
         "ruleId": rule.id,
         "from": {"type": from_type, "id": from_id},
-        "to": {"type": rule.to_type, "id": neighbor_row[to_spec.id_column]},
+        "to": {"type": rule.to_type, "id": node["id"]},
         "label": rule.label,
     }
     return node, edge

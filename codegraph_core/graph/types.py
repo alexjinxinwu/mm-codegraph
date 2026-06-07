@@ -26,3 +26,10 @@ class EdgeRule:
     direction: str = "out"
     guard: str | None = None
     assumption: str | None = None
+
+
+@dataclass(frozen=True)
+class EntryResolver:
+    kind: str
+    node_type: str
+    match_column: str

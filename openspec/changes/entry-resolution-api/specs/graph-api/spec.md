@@ -31,13 +31,13 @@ value 解析为 graph-core 根节点。解析结果中的节点 MUST 用目标 N
 
 - **WHEN** 提交 schema=S&kind=commandId&value=C1 且存在唯一匹配
 - **THEN** status 为 found
-- **AND** roots 含一个 type 为 service_entries 的节点
+- **AND** roots 含一个 type 为 service_entry 的节点
 
 #### Scenario: flowId 唯一命中
 
 - **WHEN** 提交 schema=S&kind=flowId&value=F1 且存在唯一匹配
 - **THEN** status 为 found
-- **AND** roots 含一个 type 为 flows 的节点
+- **AND** roots 含一个 type 为 flow 的节点
 
 #### Scenario: 根节点可直接用于展开
 

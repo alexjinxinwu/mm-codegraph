@@ -8,9 +8,11 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
 from codegraph_core.graph.expand_service import expand_neighbors
+from codegraph_core.graph.resolve_service import resolve_entry
 from codegraph_core.query_engine import get_pool, q, out, sql_query, ALL_TABLES
 from codegraph_core.analyzer_compat import run_entity, run_flow
 from codegraph_server.schemas_expand import ExpandRequest, ExpandResponse, GraphEdge, GraphNode, NodeRef
+from codegraph_server.schemas_resolve import GraphNodeOut, ResolveResponse
 
 router = APIRouter(prefix="/api/v1", tags=["codegraph"])
 
@@ -27,6 +29,20 @@ def expand(body: ExpandRequest):
     return ExpandResponse(
         nodes=[GraphNode(**n) for n in result.nodes],
         edges=[GraphEdge(**e) for e in result.edges],
+    )
+
+
+@router.get("/resolve", response_model=ResolveResponse)
+def resolve_entry_route(schema: str, kind: str, value: str):
+    """Resolve an external identifier to graph root node(s)."""
+    try:
+        result = resolve_entry(schema, kind, value)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return ResolveResponse(
+        status=result.status,
+        roots=[GraphNodeOut(**n) for n in result.roots],
+        candidates=[GraphNodeOut(**n) for n in result.candidates],
     )
 
 
