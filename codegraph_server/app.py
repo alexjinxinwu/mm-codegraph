@@ -23,6 +23,12 @@ app = FastAPI(
 
 app.include_router(router)
 
+_DIST = _REPO_ROOT / "codegraph_web" / "dist"
+if _DIST.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
+
 
 if __name__ == "__main__":
     import uvicorn
