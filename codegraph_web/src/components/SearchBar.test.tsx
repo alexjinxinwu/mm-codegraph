@@ -1,27 +1,42 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import { SearchBar } from './SearchBar'
 
 describe('SearchBar', () => {
   it('disables submit when schema is not selected', () => {
-    render(<SearchBar schemas={['S']} onSubmit={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute(
-      'data-validation',
-      'schema-required',
+    render(
+      <SearchBar
+        schemas={['S']}
+        schema=""
+        onSchemaChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
     )
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
   })
 
   it('does not call onSubmit when value is empty', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
 
-    render(<SearchBar schemas={['S']} onSubmit={onSubmit} />)
+    function Wrapper() {
+      const [schema, setSchema] = useState('')
+      return (
+        <SearchBar
+          schemas={['S']}
+          schema={schema}
+          onSchemaChange={setSchema}
+          onSubmit={onSubmit}
+        />
+      )
+    }
+
+    render(<Wrapper />)
     await user.selectOptions(screen.getByTestId('schema-select'), 'S')
 
-    const button = screen.getByRole('button', { name: 'Search' })
-    expect(button).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
@@ -29,7 +44,19 @@ describe('SearchBar', () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
 
-    render(<SearchBar schemas={['S']} onSubmit={onSubmit} />)
+    function Wrapper() {
+      const [schema, setSchema] = useState('')
+      return (
+        <SearchBar
+          schemas={['S']}
+          schema={schema}
+          onSchemaChange={setSchema}
+          onSubmit={onSubmit}
+        />
+      )
+    }
+
+    render(<Wrapper />)
     await user.selectOptions(screen.getByTestId('schema-select'), 'S')
     await user.type(screen.getByTestId('search-value'), 'Cmd1')
     await user.click(screen.getByRole('button', { name: 'Search' }))

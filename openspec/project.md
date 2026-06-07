@@ -36,6 +36,7 @@ MySQL 代码图谱 (14 表)     codegraph-mcp/codegraph-server.py     Claude Cod
 | graph-core | ER 图模型内核（NodeSpec、EDGE_RULES、build_expand_query） | `openspec/specs/graph-core/spec.md` |
 | graph-api | HTTP 图探索 API（GET /api/v1/resolve、POST /api/v1/expand） | `openspec/specs/graph-api/spec.md` |
 | browser-ui | 浏览器外壳与入口搜索（React SPA，消费 /resolve） | `openspec/specs/browser-ui/spec.md` |
+| graph-browser | 图画布渲染与点击展开（React Flow，消费 /expand） | `openspec/specs/graph-browser/spec.md` |
 | propose-migration-skill | 输入 commandId/flowId，调用 `search_service_impact` 在 codeBaseRoot 写出 `<id>-plan.txt` | `openspec/specs/propose-migration-skill/spec.md` |
 
 ## 相关文档

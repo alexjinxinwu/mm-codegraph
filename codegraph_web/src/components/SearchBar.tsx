@@ -11,12 +11,19 @@ export type SearchSubmitPayload = {
 
 type Props = {
   schemas: string[]
+  schema: string
+  onSchemaChange: (schema: string) => void
   loading?: boolean
   onSubmit: (payload: SearchSubmitPayload) => void
 }
 
-export function SearchBar({ schemas, loading = false, onSubmit }: Props) {
-  const [schema, setSchema] = useState('')
+export function SearchBar({
+  schemas,
+  schema,
+  onSchemaChange,
+  loading = false,
+  onSubmit,
+}: Props) {
   const [kind, setKind] = useState<EntryKind>('commandId')
   const [value, setValue] = useState('')
   const [valueHint, setValueHint] = useState<string | null>(null)
@@ -41,7 +48,7 @@ export function SearchBar({ schemas, loading = false, onSubmit }: Props) {
       <SchemaSelect
         schemas={schemas}
         value={schema}
-        onChange={setSchema}
+        onChange={onSchemaChange}
         disabled={loading}
       />
       <KindSelect value={kind} onChange={setKind} disabled={loading} />

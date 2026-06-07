@@ -2,12 +2,12 @@
 
 ## Purpose
 
-在 `codegraph_web/` 提供浏览器端**入口外壳**：持久三区域布局（搜索栏 / 主画布占位 / 状态区），通过 schema 选择器与 kind+value 搜索调用 **GET `/api/v1/resolve`**，把外部标识解析为图根节点 seed。界面完整表达 resolve 三态（`found` / `multiple` / `notFound`）及加载/错误态；本能力只负责落 seed，图渲染与 `/expand` 展开由后续 canvas 能力接手。
+在 `codegraph_web/` 提供浏览器端**入口外壳**：持久三区域布局（搜索栏 / 主画布 / 状态区），通过 schema 选择器与 kind+value 搜索调用 **GET `/api/v1/resolve`**，把外部标识解析为图根节点 seed。界面完整表达 resolve 三态（`found` / `multiple` / `notFound`）及加载/错误态；种子节点交给 `GraphCanvas`（见 `graph-browser` 能力）渲染与展开。
 
 | 区域 | 职责 |
 |------|------|
 | 搜索栏 | schema 选择 + kind（commandId / flowId）+ value 输入 |
-| 主画布 | `CanvasPlaceholder` 接收 `{ type, id, title?, subtitle? }` seed |
+| 主画布 | `GraphCanvas` 接收 `{ type, id, title?, subtitle? }` seed |
 | 状态区 | 三态 UI、加载、错误重试 |
 
 实现位置：`codegraph_web/src/`（React + Vite + TypeScript）；生产构建由 `codegraph_server/app.py` 挂载 `codegraph_web/dist/`。

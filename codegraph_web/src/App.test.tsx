@@ -4,7 +4,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import * as resolveApi from './api/resolve'
 import * as schemasApi from './api/schemas'
-import type { ResolveResponse } from './types/graph'
+
+vi.mock('./components/GraphCanvas', () => ({
+  GraphCanvas: ({
+    seed,
+  }: {
+    schema: string
+    seed: { type: string; id: number; title?: string | null } | null
+  }) =>
+    seed ? (
+      <div data-testid="graph-canvas">
+        <span data-testid="seed-type">{seed.type}</span>
+        <span data-testid="seed-id">{seed.id}</span>
+        {seed.title && <span data-testid="seed-title">{seed.title}</span>}
+      </div>
+    ) : (
+      <div data-testid="canvas-empty">Select an entry to begin</div>
+    ),
+}))
 
 describe('App integration', () => {
   beforeEach(() => {
@@ -26,7 +43,7 @@ describe('App integration', () => {
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('canvas-seed')).toBeInTheDocument()
+      expect(screen.getByTestId('graph-canvas')).toBeInTheDocument()
     })
     expect(screen.getByTestId('seed-type')).toHaveTextContent('service_entry')
     expect(screen.getByTestId('seed-id')).toHaveTextContent('12')
@@ -59,9 +76,7 @@ describe('App integration', () => {
     vi.spyOn(resolveApi, 'resolveEntry').mockResolvedValue({
       status: 'multiple',
       roots: [],
-      candidates: [
-        { type: 'flow', id: 2, title: 'F2', subtitle: 'draft' },
-      ],
+      candidates: [{ type: 'flow', id: 2, title: 'F2', subtitle: 'draft' }],
     })
 
     render(<App />)
@@ -117,7 +132,7 @@ describe('App integration', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 
     await waitFor(() => {
-      expect(screen.getByTestId('canvas-seed')).toBeInTheDocument()
+      expect(screen.getByTestId('graph-canvas')).toBeInTheDocument()
     })
     expect(resolveApi.resolveEntry).toHaveBeenCalledTimes(2)
   })
@@ -135,14 +150,14 @@ describe('App integration', () => {
     expect(resolveSpy).not.toHaveBeenCalled()
   })
 
-  it('prevents duplicate requests while loading', async () => {
+  it('prevents duplicate resolve requests while loading', async () => {
     const user = userEvent.setup()
-    let resolveFn!: (value: ResolveResponse) => void
+    let resolveFn!: (value: Awaited<ReturnType<typeof resolveApi.resolveEntry>>) => void
     const resolveSpy = vi.spyOn(resolveApi, 'resolveEntry').mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveFn = resolve
-        }) as ReturnType<typeof resolveApi.resolveEntry>,
+        }),
     )
 
     render(<App />)
