@@ -4,13 +4,30 @@ These endpoints provide the same query semantics as the MCP server,
 ensuring zero behavioral difference between MCP stdio and HTTP transports.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
+from codegraph_core.graph.expand_service import expand_neighbors
 from codegraph_core.query_engine import get_pool, q, out, sql_query, ALL_TABLES
 from codegraph_core.analyzer_compat import run_entity, run_flow
+from codegraph_server.schemas_expand import ExpandRequest, ExpandResponse, GraphEdge, GraphNode, NodeRef
 
 router = APIRouter(prefix="/api/v1", tags=["codegraph"])
+
+
+@router.post("/expand", response_model=ExpandResponse)
+def expand(body: ExpandRequest):
+    """Expand forward neighbors of a graph node using graph-core EDGE_RULES."""
+    try:
+        result = expand_neighbors(
+            body.schema_, body.node.type, body.node.id, body.edgeIds
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return ExpandResponse(
+        nodes=[GraphNode(**n) for n in result.nodes],
+        edges=[GraphEdge(**e) for e in result.edges],
+    )
 
 
 # ── Query Engine Primitives ───────────────────────────────────────────
